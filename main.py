@@ -5,8 +5,8 @@ def CreatePetriNet(ps, Mas):
     Name = Mas[0]
     _Out = Mas[1]
     _In = Mas[2]
-    ts[Name] = Transition(Name, [Out("p"+str(int(i) + 1), ps[int(i)]) for i in _Out.split(" ")],
-                          [In("p"+str(int(i) + 1), ps[int(i)]) for i in _In.split(" ")])
+    ts[Name] = Transition(Name, [Out("p" + str(int(i) + 1), ps[int(i)]) for i in _Out.split(" ")],
+                          [In("p" + str(int(i) + 1), ps[int(i)]) for i in _In.split(" ")])
 
 
 def PrintGraph(graph):
@@ -19,7 +19,7 @@ def PrintGraph(graph):
         two = edge[edge.find(",") + 1:]
         G.add_edge(one, two)
 
-    nx.write_gml(G,'graph.gml')
+    nx.write_gml(G, 'graph.gml')
     nx.draw(G, with_labels=True, font_color='white', font_size=12, font_weight='bold')
     plt.show()
 
@@ -112,14 +112,11 @@ class PetriNet:
         print("start {}\n".format([p.holding for p in ps]))
         prev_state = "t0"
         for name in firing_sequence:
-            # if set(list(ts.keys())).issubset(triggered_tr):
-            #     print("All transitions worked!")
-            #     break
             holdings = [p.holding for p in ps]
             for i in holdings:
                 if i >= MAX_CHIPS:
-                    raise(Exception("Increase in the number of chips in position p"
-                                    + str(holdings.index(i) + 1)))
+                    raise (Exception("Increase in the number of chips in position p"
+                                     + str(holdings.index(i) + 1)))
             t = self.transitions[name]
             if t.fire():
                 if prev_state + "," + t.name not in reachability_graph:
@@ -133,7 +130,12 @@ class PetriNet:
                 # print("{} ...fizzled.".format(name))
                 pass
 
-        print("\nfinal {}".format([p.holding for p in ps]))
+        if set(list(ts.keys())).issubset(triggered_tr):
+            print("All transitions worked!")
+        else:
+            print("\033[31m\nUnreachable transitions: " + str(set(list(ts.keys())) - set(triggered_tr)) + "\n")
+
+        # print("\nfinal {}".format([p.holding for p in ps]))
 
 
 def InputDataParser(in_str):
@@ -173,4 +175,4 @@ if __name__ == "__main__":
     petri_net = PetriNet(ts)
     petri_net.run(firing_sequence, ps)
     PrintGraph(reachability_graph)
-    print(reachability_graph)
+    # print(reachability_graph)
