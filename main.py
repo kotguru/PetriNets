@@ -108,24 +108,30 @@ class PetriNet:
         :ps: Place holdings to print during the run (debugging).
         """
 
-        print("Using firing sequence:\n" + " => ".join(firing_sequence))
+        # print("Using firing sequence:\n" + " => ".join(firing_sequence))
         print("start {}\n".format([p.holding for p in ps]))
         prev_state = "t0"
         for name in firing_sequence:
+            # if set(list(ts.keys())).issubset(triggered_tr):
+            #     print("All transitions worked!")
+            #     break
             holdings = [p.holding for p in ps]
-            # for i in holdings:
-                # if i >= MAX_CHIPS:
-                    # raise(Exception("Increase in the number of chips in position p"
-                    #                 + str(holdings.index(i) + 1)))
+            for i in holdings:
+                if i >= MAX_CHIPS:
+                    raise(Exception("Increase in the number of chips in position p"
+                                    + str(holdings.index(i) + 1)))
             t = self.transitions[name]
             if t.fire():
                 if prev_state + "," + t.name not in reachability_graph:
                     reachability_graph.append(prev_state + "," + t.name)
+                if t.name not in triggered_tr:
+                    triggered_tr.append(t.name)
                 prev_state = t.name
                 print("{} fired!".format(name))
                 print("  =>  {}".format([p.holding for p in ps]))
             else:
-                print("{} ...fizzled.".format(name))
+                # print("{} ...fizzled.".format(name))
+                pass
 
         print("\nfinal {}".format([p.holding for p in ps]))
 
@@ -160,8 +166,9 @@ if __name__ == "__main__":
     ts = dict()
     [CreatePetriNet(ps, InputDataParser(lines[i])) for i in range(len(lines))]
 
-    firing_sequence = list(ts.keys()) * 10
+    firing_sequence = list(ts.keys()) * 100
 
+    triggered_tr = list()
     reachability_graph = list()
     petri_net = PetriNet(ts)
     petri_net.run(firing_sequence, ps)
