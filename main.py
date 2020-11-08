@@ -1,23 +1,17 @@
-# This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+MAX_CHIPS = 10
 
 
-"""
-Modeling approach:
-  * define Petri nets in terms of their transactions
-  * define transactions in terms of the actions of their arcs
-  * define arcs in terms with their action on their in- or outgoing place
-  * define places as basic containers
+def CreatePetriNet(ps, Mas):
+    Name = Mas[0]
+    _Out = Mas[1]
+    _In = Mas[2]
+    ts[Name] = Transition(Name, [Out(ps[int(i)]) for i in _Out.split(" ")],
+                          [In(ps[int(i)]) for i in _In.split(" ")])
 
-Run with python 2 or 3, for the example coded up in in __main__, via
-  python petri_net.py --firings 10 --marking 1 2 3 2
 
-References:
- * https://en.wikipedia.org/wiki/Petri_net
- * https://www.amazon.com/Understanding-Petri-Nets-Modeling-Techniques/dp/3642332773
-"""
+def PrintGraph(graph):
+    import networkx as nx
+    nx.draw(graph, with_labels=True, font_color='white', font_size=12, font_weight='bold')
 
 
 class Place:
@@ -63,12 +57,13 @@ class In(ArcBase):
 
 
 class Transition:
-    def __init__(self, out_arcs, in_arcs):
+    def __init__(self, name, out_arcs, in_arcs):
         """
         Transition vertex in the petri net.
         :out_arcs: Collection of ingoing arcs, to the transition vertex.
         :in_arcs: Collection of outgoing arcs, to the transition vertex.
         """
+        self.name = name
         self.out_arcs = set(out_arcs)
         self.arcs = self.out_arcs.union(in_arcs)
 
@@ -105,6 +100,11 @@ class PetriNet:
         print("start {}\n".format([p.holding for p in ps]))
 
         for name in firing_sequence:
+            holdings = [p.holding for p in ps]
+            for i in holdings:
+                if i >= MAX_CHIPS:
+                    raise(Exception("Increase in the number of chips in position p"
+                                    + str(holdings.index(i) + 1)))
             t = self.transitions[name]
             if t.fire():
                 print("{} fired!".format(name))
@@ -115,13 +115,22 @@ class PetriNet:
         print("\nfinal {}".format([p.holding for p in ps]))
 
 
+def InputDataParser(in_str):
+    name = in_str[:2]
+    start_out = in_str.find(":")
+    end_out = in_str.find(">")
+    start_in = end_out + 2
+
+    return [name, in_str[start_out + 2: end_out - 2], in_str[start_in:]]
+
+
 def make_parser():
     """
     :return: A parser reading in some of our simulation paramaters.
     """
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    parser.add_argument('--firings', type=int)
+    # parser.add_argument('--firings', type=int)
     parser.add_argument('--marking', type=int, nargs='+')
     return parser
 
@@ -130,22 +139,13 @@ if __name__ == "__main__":
     args = make_parser().parse_args()
 
     ps = [Place(m) for m in args.marking]
-    ts = dict(
-        t1=Transition(
-            [Out(ps[0])],
-            [In(ps[1]), In(ps[2])]
-        ),
-        t2=Transition(
-            [Out(ps[1]), Out(ps[2])],
-            [In(ps[3]), In(ps[0])]
-        ),
-    )
+    with open('Network Configuration', 'r') as f:
+        lines = f.read().splitlines()
 
-    from random import choice
+    ts = dict()
+    [CreatePetriNet(ps, InputDataParser(lines[i])) for i in range(len(lines))]
 
-    firing_sequence = [choice(list(ts.keys())) for _ in range(args.firings)]  # stochastic execution
-
-    # firing_sequence = ["t1", "t1", "t2", "t1"] # alternative deterministic example
+    firing_sequence = list(ts.keys()) * 10
 
     petri_net = PetriNet(ts)
     petri_net.run(firing_sequence, ps)
