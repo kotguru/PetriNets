@@ -5,13 +5,23 @@ def CreatePetriNet(ps, Mas):
     Name = Mas[0]
     _Out = Mas[1]
     _In = Mas[2]
-    ts[Name] = Transition(Name, [Out(ps[int(i)]) for i in _Out.split(" ")],
-                          [In(ps[int(i)]) for i in _In.split(" ")])
+    ts[Name] = Transition(Name, [Out("p"+str(int(i) + 1), ps[int(i)]) for i in _Out.split(" ")],
+                          [In("p"+str(int(i) + 1), ps[int(i)]) for i in _In.split(" ")])
 
 
 def PrintGraph(graph):
     import networkx as nx
-    nx.draw(graph, with_labels=True, font_color='white', font_size=12, font_weight='bold')
+    import matplotlib.pyplot as plt
+    G = nx.DiGraph()
+
+    for edge in graph:
+        one = edge[:edge.find(",")]
+        two = edge[edge.find(",") + 1:]
+        G.add_edge(one, two)
+
+    nx.write_gml(G,'graph.gml')
+    nx.draw(G, with_labels=True, font_color='white', font_size=12, font_weight='bold')
+    plt.show()
 
 
 class Place:
@@ -24,12 +34,13 @@ class Place:
 
 
 class ArcBase:
-    def __init__(self, place, amount=1):
+    def __init__(self, name, place, amount=1):
         """
         Arc in the petri net.
         :place: The one place acting as source/target of the arc as arc in the net
         :amount: The amount of token removed/added from/to the place.
         """
+        self.name = name
         self.place = place
         self.amount = amount
 
@@ -77,6 +88,7 @@ class Transition:
         if not_blocked:
             for arc in self.arcs:
                 arc.trigger()
+                # reachability_graph.append(str(self.name) + "," + str(arc.name))
         return not_blocked  # return if fired, just for the sake of debuging
 
 
@@ -98,15 +110,18 @@ class PetriNet:
 
         print("Using firing sequence:\n" + " => ".join(firing_sequence))
         print("start {}\n".format([p.holding for p in ps]))
-
+        prev_state = "t0"
         for name in firing_sequence:
             holdings = [p.holding for p in ps]
-            for i in holdings:
-                if i >= MAX_CHIPS:
-                    raise(Exception("Increase in the number of chips in position p"
-                                    + str(holdings.index(i) + 1)))
+            # for i in holdings:
+                # if i >= MAX_CHIPS:
+                    # raise(Exception("Increase in the number of chips in position p"
+                    #                 + str(holdings.index(i) + 1)))
             t = self.transitions[name]
             if t.fire():
+                if prev_state + "," + t.name not in reachability_graph:
+                    reachability_graph.append(prev_state + "," + t.name)
+                prev_state = t.name
                 print("{} fired!".format(name))
                 print("  =>  {}".format([p.holding for p in ps]))
             else:
@@ -147,5 +162,8 @@ if __name__ == "__main__":
 
     firing_sequence = list(ts.keys()) * 10
 
+    reachability_graph = list()
     petri_net = PetriNet(ts)
     petri_net.run(firing_sequence, ps)
+    PrintGraph(reachability_graph)
+    print(reachability_graph)
