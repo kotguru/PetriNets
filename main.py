@@ -24,7 +24,7 @@ def PrintGraph(graph):
     plt.show()
 
 
-class Place:
+class Position:
     def __init__(self, holding):
         """
         Place vertex in the petri net.
@@ -78,13 +78,15 @@ class Transition:
         self.out_arcs = set(out_arcs)
         self.arcs = self.out_arcs.union(in_arcs)
 
+    def might_work(self):
+        not_blocked = all(arc.non_blocking() for arc in self.out_arcs)
+        return not_blocked
+
     def fire(self):
         """
         Fire!
         """
-        not_blocked = all(arc.non_blocking() for arc in self.out_arcs)
-        # Note: This would have to be checked differently for variants of
-        # petri  nets that take more than once from a place, per transition.
+        not_blocked = self.might_work()
         if not_blocked:
             for arc in self.arcs:
                 arc.trigger()
@@ -100,6 +102,13 @@ class PetriNet:
         """
         self.transitions = transitions
 
+    def trans_list(self):
+        transition_list = list()
+        for name in firing_sequence:
+            if self.transitions[name].might_work():
+                transition_list.append(name)
+        return transition_list
+
     def run(self, firing_sequence, ps):
         """
         Run the petri net.
@@ -107,35 +116,72 @@ class PetriNet:
         :firing_sequence: Sequence of transition names use for run.
         :ps: Place holdings to print during the run (debugging).
         """
+        print("start {}\n".format(get_markings(ps)))
 
-        # print("Using firing sequence:\n" + " => ".join(firing_sequence))
-        print("start {}\n".format([p.holding for p in ps]))
-        prev_state = "t0"
-        for name in firing_sequence:
-            holdings = [p.holding for p in ps]
-            for i in holdings:
-                if i >= MAX_CHIPS:
-                    raise (Exception("Increase in the number of chips in position p"
-                                     + str(holdings.index(i) + 1)))
-            t = self.transitions[name]
-            if t.fire():
-                if prev_state + "," + t.name not in reachability_graph:
-                    reachability_graph.append(prev_state + "," + t.name)
-                if t.name not in triggered_tr:
-                    triggered_tr.append(t.name)
-                prev_state = t.name
-                print("{} fired!".format(name))
-                print("  =>  {}".format([p.holding for p in ps]))
-            else:
-                # print("{} ...fizzled.".format(name))
-                pass
+        transition_list = list()
+        while len(future_marking) > 0:
+            trans_flag = True
+            if all(future_marking[i] in worked_positions for i in range(len(future_marking))):
+                break
+            cur_mark = future_marking[0]
+            while trans_flag and cur_mark not in worked_positions:
+                worked_positions.append(cur_mark)
+                restore_markings(cur_mark)
+                transition_list = self.trans_list()
+                if len(transition_list) == 1:
+                    t_name = transition_list[0]
+                    self.transitions[t_name].fire()
+                    new_mark = get_markings(ps)
+                    print("{} fired!".format(t_name))
+                    print("{}  =>  {}".format(cur_mark, new_mark))
+                    cur_mark = new_mark
+                else:
+                    if len(transition_list) > 1:
+                        for i in range(1, len(transition_list)):
+                            t_name = transition_list[i]
+                            self.transitions[t_name].fire()
+                            new_mark = get_markings(ps)
+                            future_marking.append(new_mark)
+                            print("Many transitions can work {}".format(t_name))
+                            print("{}  =>  {}".format(cur_mark, new_mark))
+                        t_name = transition_list[0]
+                        restore_markings(cur_mark)
+                        self.transitions[t_name].fire()
+                        new_mark = get_markings(ps)
+                        print("{} fired!".format(t_name))
+                        print("{}  =>  {}".format(cur_mark, new_mark))
+                        cur_mark = new_mark
+                    else:
+                        trans_flag = False
+            future_marking.pop(0)
 
-        if set(list(ts.keys())).issubset(triggered_tr):
-            print("All transitions worked!")
-        else:
-            print("\033[31m\nUnreachable transitions: " + str(set(list(ts.keys())) - set(triggered_tr)) + "\n")
+            # print("Using firing sequence:\n" + " => ".join(firing_sequence))
+            prev_state = "t0"
+            # for name in firing_sequence:
+            #     holdings = [p.holding for p in ps]
+            #     for i in holdings:
+            #         if i >= MAX_CHIPS:
+            #             raise (Exception("Increase in the number of chips in position p"
+            #                              + str(holdings.index(i) + 1)))
+            #     t = self.transitions[name]
+            #     if t.fire():
+            #         if prev_state + "," + t.name not in reachability_graph:
+            #             reachability_graph.append(prev_state + "," + t.name)
+            #         if t.name not in triggered_tr:
+            #             triggered_tr.append(t.name)
+            #         prev_state = t.name
+            #         print("{} fired!".format(name))
+            #         print("  =>  {}".format([p.holding for p in ps]))
+            #     else:
+            #         # print("{} ...fizzled.".format(name))
+            #         pass
 
-        # print("\nfinal {}".format([p.holding for p in ps]))
+            # if set(list(ts.keys())).issubset(triggered_tr):
+            #     print("All transitions worked!")
+            # else:
+            #     print("\033[33m\nUnreachable transitions: " + str(set(list(ts.keys())) - set(triggered_tr)) + "\n")
+
+            # print("\nfinal {}".format([p.holding for p in ps]))
 
 
 def InputDataParser(in_str):
@@ -158,21 +204,37 @@ def make_parser():
     return parser
 
 
+def get_markings(ps):
+    return [p.holding for p in ps]
+
+
+def restore_markings(marking):
+    i = 0
+    for pos in ps:
+        pos.holding = marking[i]
+        i += 1
+    pass
+
+
 if __name__ == "__main__":
     args = make_parser().parse_args()
 
-    ps = [Place(m) for m in args.marking]
+    ps = [Position(m) for m in args.marking]
     with open('Network Configuration', 'r') as f:
         lines = f.read().splitlines()
 
     ts = dict()
     [CreatePetriNet(ps, InputDataParser(lines[i])) for i in range(len(lines))]
 
-    firing_sequence = list(ts.keys()) * 100
+    firing_sequence = list(ts.keys())
 
+    future_marking = list()
+    future_marking.append(get_markings(ps))
+    worked_positions = list()
     triggered_tr = list()
     reachability_graph = list()
+
     petri_net = PetriNet(ts)
     petri_net.run(firing_sequence, ps)
-    PrintGraph(reachability_graph)
+    # PrintGraph(reachability_graph)
     # print(reachability_graph)
