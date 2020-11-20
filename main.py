@@ -9,21 +9,6 @@ def CreatePetriNet(ps, Mas):
                           [In("p" + str(int(i) + 1), ps[int(i)]) for i in _In.split(" ")])
 
 
-def PrintGraph(graph):
-    import networkx as nx
-    import matplotlib.pyplot as plt
-    G = nx.DiGraph()
-
-    for edge in graph:
-        one = edge[:edge.find(",")]
-        two = edge[edge.find(",") + 1:]
-        G.add_edge(one, two)
-
-    nx.write_gml(G, 'graph.gml')
-    nx.draw(G, with_labels=True, font_color='white', font_size=12, font_weight='bold')
-    plt.show()
-
-
 class Position:
     def __init__(self, holding):
         """
@@ -121,8 +106,8 @@ class PetriNet:
         transition_list = list()
         while len(future_marking) > 0:
             trans_flag = True
-            if all(future_marking[i] in worked_positions for i in range(len(future_marking))):
-                break
+            # if all(future_marking[i] in worked_positions for i in range(len(future_marking))):
+            #     break
             cur_mark = future_marking[0]
             while trans_flag and cur_mark not in worked_positions:
                 worked_positions.append(cur_mark)
@@ -134,6 +119,11 @@ class PetriNet:
                     new_mark = get_markings(ps)
                     print("{} fired!".format(t_name))
                     print("{}  =>  {}".format(cur_mark, new_mark))
+                    links_num = len(reachability_graph)
+                    reachability_graph.append([])
+                    reachability_graph[links_num].append(cur_mark)
+                    reachability_graph[links_num].append(new_mark)
+                    reachability_graph[links_num].append(int(t_name[1]) + 1)
                     cur_mark = new_mark
                 else:
                     if len(transition_list) > 1:
@@ -150,10 +140,18 @@ class PetriNet:
                         new_mark = get_markings(ps)
                         print("{} fired!".format(t_name))
                         print("{}  =>  {}".format(cur_mark, new_mark))
+                        links_num = len(reachability_graph)
+                        reachability_graph.append([])
+                        reachability_graph[links_num].append(cur_mark)
+                        reachability_graph[links_num].append(new_mark)
+                        reachability_graph[links_num].append(int(t_name[1]) + 1)
                         cur_mark = new_mark
                     else:
                         trans_flag = False
             future_marking.pop(0)
+
+        if cur_mark not in worked_positions:
+            worked_positions.append(cur_mark)
 
             # print("Using firing sequence:\n" + " => ".join(firing_sequence))
             prev_state = "t0"
@@ -216,6 +214,44 @@ def restore_markings(marking):
     pass
 
 
+def PrintGraph(graph):
+    import networkx as nx
+    import matplotlib.pyplot as plt
+
+    graph = nx.DiGraph()
+    for i in range(len(reachability_graph)):
+        graph.add_edges_from([(', '.join(map(str, reachability_graph[i][0])), ', '.join(map(str, reachability_graph[i][1])))],
+                             weight=reachability_graph[i][2])
+
+    edge_labels = dict([((u, v,), d['weight'])
+                        for u, v, d in graph.edges(data=True)])
+    pos = nx.spring_layout(graph)
+    nx.draw_networkx_edge_labels(graph, pos, edge_labels=edge_labels)
+    nx.draw(graph, pos, edge_cmap=plt.cm.Reds,
+                     # node_color='yellow',
+                     node_size=500,
+                     font_size=5,
+                     with_labels=True)
+    plt.rcParams["figure.figsize"] = (95, 95)
+
+    x_values, y_values = zip(*pos.values())
+    x_max = max(x_values)
+    x_min = min(x_values)
+    x_margin = (x_max - x_min) * 0.25
+    plt.xlim(x_min - x_margin, x_max + x_margin)
+
+    # G = nx.DiGraph()
+    #
+    # for edge in graph:
+    #     one = edge[:edge.find(",")]
+    #     two = edge[edge.find(",") + 1:]
+    #     G.add_edge(one, two)
+    #
+    # nx.write_gml(G, 'graph.gml')
+    # nx.draw(G, with_labels=True, font_color='white', font_size=12, font_weight='bold')
+    plt.show()
+
+
 if __name__ == "__main__":
     args = make_parser().parse_args()
 
@@ -231,10 +267,10 @@ if __name__ == "__main__":
     future_marking = list()
     future_marking.append(get_markings(ps))
     worked_positions = list()
-    triggered_tr = list()
+    # triggered_tr = list()
     reachability_graph = list()
 
     petri_net = PetriNet(ts)
     petri_net.run(firing_sequence, ps)
-    # PrintGraph(reachability_graph)
+    PrintGraph(reachability_graph)
     # print(reachability_graph)
