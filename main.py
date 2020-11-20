@@ -75,8 +75,7 @@ class Transition:
         if not_blocked:
             for arc in self.arcs:
                 arc.trigger()
-                # reachability_graph.append(str(self.name) + "," + str(arc.name))
-        return not_blocked  # return if fired, just for the sake of debuging
+        return not_blocked
 
 
 class PetriNet:
@@ -94,20 +93,18 @@ class PetriNet:
                 transition_list.append(name)
         return transition_list
 
-    def run(self, firing_sequence, ps):
+    def run(self, ps):
         """
         Run the petri net.
         Details: This is a loop over the transactions firing and then some printing.
         :firing_sequence: Sequence of transition names use for run.
         :ps: Place holdings to print during the run (debugging).
         """
+        global cur_mark
         print("start {}\n".format(get_markings(ps)))
 
-        transition_list = list()
         while len(future_marking) > 0:
             trans_flag = True
-            # if all(future_marking[i] in worked_positions for i in range(len(future_marking))):
-            #     break
             cur_mark = future_marking[0]
             while trans_flag and cur_mark not in worked_positions:
                 worked_positions.append(cur_mark)
@@ -153,34 +150,6 @@ class PetriNet:
         if cur_mark not in worked_positions:
             worked_positions.append(cur_mark)
 
-            # print("Using firing sequence:\n" + " => ".join(firing_sequence))
-            prev_state = "t0"
-            # for name in firing_sequence:
-            #     holdings = [p.holding for p in ps]
-            #     for i in holdings:
-            #         if i >= MAX_CHIPS:
-            #             raise (Exception("Increase in the number of chips in position p"
-            #                              + str(holdings.index(i) + 1)))
-            #     t = self.transitions[name]
-            #     if t.fire():
-            #         if prev_state + "," + t.name not in reachability_graph:
-            #             reachability_graph.append(prev_state + "," + t.name)
-            #         if t.name not in triggered_tr:
-            #             triggered_tr.append(t.name)
-            #         prev_state = t.name
-            #         print("{} fired!".format(name))
-            #         print("  =>  {}".format([p.holding for p in ps]))
-            #     else:
-            #         # print("{} ...fizzled.".format(name))
-            #         pass
-
-            # if set(list(ts.keys())).issubset(triggered_tr):
-            #     print("All transitions worked!")
-            # else:
-            #     print("\033[33m\nUnreachable transitions: " + str(set(list(ts.keys())) - set(triggered_tr)) + "\n")
-
-            # print("\nfinal {}".format([p.holding for p in ps]))
-
 
 def InputDataParser(in_str):
     name = in_str[:2]
@@ -197,7 +166,6 @@ def make_parser():
     """
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    # parser.add_argument('--firings', type=int)
     parser.add_argument('--marking', type=int, nargs='+')
     return parser
 
@@ -214,42 +182,31 @@ def restore_markings(marking):
     pass
 
 
-def PrintGraph(graph):
+def PrintGraph():
     import networkx as nx
     import matplotlib.pyplot as plt
 
     graph = nx.DiGraph()
     for i in range(len(reachability_graph)):
-        graph.add_edges_from([(', '.join(map(str, reachability_graph[i][0])), ', '.join(map(str, reachability_graph[i][1])))],
-                             weight=reachability_graph[i][2])
+        graph.add_edges_from(
+            [(', '.join(map(str, reachability_graph[i][0])), ', '.join(map(str, reachability_graph[i][1])))],
+            weight=reachability_graph[i][2])
 
     edge_labels = dict([((u, v,), d['weight'])
                         for u, v, d in graph.edges(data=True)])
     pos = nx.spring_layout(graph)
+    plt.figure(figsize=(20, 20))
     nx.draw_networkx_edge_labels(graph, pos, edge_labels=edge_labels)
     nx.draw(graph, pos, edge_cmap=plt.cm.Reds,
-                     # node_color='yellow',
-                     node_size=500,
-                     font_size=5,
-                     with_labels=True)
-    plt.rcParams["figure.figsize"] = (95, 95)
-
+            node_size=500,
+            font_size=12,
+            with_labels=True)
     x_values, y_values = zip(*pos.values())
     x_max = max(x_values)
     x_min = min(x_values)
     x_margin = (x_max - x_min) * 0.25
     plt.xlim(x_min - x_margin, x_max + x_margin)
-
-    # G = nx.DiGraph()
-    #
-    # for edge in graph:
-    #     one = edge[:edge.find(",")]
-    #     two = edge[edge.find(",") + 1:]
-    #     G.add_edge(one, two)
-    #
-    # nx.write_gml(G, 'graph.gml')
-    # nx.draw(G, with_labels=True, font_color='white', font_size=12, font_weight='bold')
-    plt.show()
+    plt.savefig("reach_graph.png")
 
 
 if __name__ == "__main__":
@@ -267,10 +224,8 @@ if __name__ == "__main__":
     future_marking = list()
     future_marking.append(get_markings(ps))
     worked_positions = list()
-    # triggered_tr = list()
     reachability_graph = list()
 
     petri_net = PetriNet(ts)
-    petri_net.run(firing_sequence, ps)
-    PrintGraph(reachability_graph)
-    # print(reachability_graph)
+    petri_net.run(ps)
+    PrintGraph()
