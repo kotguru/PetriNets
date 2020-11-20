@@ -120,7 +120,7 @@ class PetriNet:
                     reachability_graph.append([])
                     reachability_graph[links_num].append(cur_mark)
                     reachability_graph[links_num].append(new_mark)
-                    reachability_graph[links_num].append(int(t_name[1]) + 1)
+                    reachability_graph[links_num].append(int(t_name[1]))
                     cur_mark = new_mark
                 else:
                     if len(transition_list) > 1:
