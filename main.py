@@ -131,6 +131,11 @@ class PetriNet:
                             future_marking.append(new_mark)
                             print("Many transitions can work {}".format(t_name))
                             print("{}  =>  {}".format(cur_mark, new_mark))
+                            links_num = len(reachability_graph)
+                            reachability_graph.append([])
+                            reachability_graph[links_num].append(cur_mark)
+                            reachability_graph[links_num].append(new_mark)
+                            reachability_graph[links_num].append(int(t_name[1]))
                         t_name = transition_list[0]
                         restore_markings(cur_mark)
                         self.transitions[t_name].fire()
@@ -141,7 +146,7 @@ class PetriNet:
                         reachability_graph.append([])
                         reachability_graph[links_num].append(cur_mark)
                         reachability_graph[links_num].append(new_mark)
-                        reachability_graph[links_num].append(int(t_name[1]) + 1)
+                        reachability_graph[links_num].append(int(t_name[1]))
                         cur_mark = new_mark
                     else:
                         trans_flag = False
